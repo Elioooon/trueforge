@@ -28,6 +28,7 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { ResolveUserContext, UserContext } from '../auth/identity';
+import { requireAccessToken } from '../auth/middleware';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -35,6 +36,8 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
+import { LocalModelRegistry } from '../model-registry/LocalModelRegistry';
+import type { ModelRegistry } from '../model-registry/ModelRegistry';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -50,7 +53,6 @@ import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
   getMcpConnection,
-  getModelDetails,
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -104,6 +106,7 @@ export interface TurnsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   modelProviderStore: IModelProviderStore;
+  modelRegistry?: ModelRegistry | undefined;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
@@ -125,7 +128,8 @@ function createTurnResolver(deps: {
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
-  modelProviderStore: IModelProviderStore;
+  modelRegistry: ModelRegistry;
+  accessToken: string;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
@@ -137,7 +141,8 @@ function createTurnResolver(deps: {
     skillStore,
     sandboxProviderStore,
     agentStore,
-    modelProviderStore,
+    modelRegistry,
+    accessToken,
     logger,
     signal,
     userRef,
@@ -145,19 +150,18 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const { providerConfig, defaultModelParams, modelProperties } = await getModelDetails({
-        tenant_id: TENANT_ID,
+      const resolved = await modelRegistry.resolveModel({
         name,
-        store: modelProviderStore,
+        accessToken,
       });
       return {
         modelClient: new VercelAILLM({
-          providerConfig,
+          providerConfig: resolved.providerConfig,
           logger,
           signal,
         }),
-        defaultModelParams,
-        modelProperties,
+        defaultModelParams: resolved.defaultModelParams,
+        modelProperties: resolved.modelProperties,
       };
     },
     mcp: async name => {
@@ -362,6 +366,7 @@ const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
 
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
+  const modelRegistry = deps.modelRegistry ?? new LocalModelRegistry(deps.modelProviderStore);
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -506,13 +511,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const abortController = new AbortController();
+    const accessToken = configuration.TRUEFOUNDRY_REGISTRY !== undefined ? requireAccessToken(c) : '';
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
       tokenStore: deps.tokenStore,
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
       agentStore: deps.agentStore,
-      modelProviderStore: deps.modelProviderStore,
+      modelRegistry,
+      accessToken,
       logger: deps.logger,
       signal: abortController.signal,
       userRef: deps.resolveUserContext(c).userRef,

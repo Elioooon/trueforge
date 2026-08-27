@@ -23,23 +23,22 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
+import type { ModelRegistry } from '../model-registry/ModelRegistry';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
   url: string;
   headers: RemoteMcpHeaders;
 }
 
-/** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
+/** Split `provider/model` FQN. The model segment may contain `/` (first slash is the provider). */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
   const slash = name.indexOf('/');
   if (slash <= 0 || slash === name.length - 1) {
-    return undefined;
-  }
-  if (name.includes('/', slash + 1)) {
     return undefined;
   }
   return { providerName: name.slice(0, slash), modelName: name.slice(slash + 1) };
@@ -61,6 +60,7 @@ export async function getModelDetails({
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
   modelProperties: AgentDefinition['modelProperties'];
+  reasoningEfforts: ReasoningEffort[] | undefined;
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -95,6 +95,7 @@ export async function getModelDetails({
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
     modelProperties: { contextLength: model.properties.context_length },
+    reasoningEfforts: model.properties.reasoning_efforts,
   };
 }
 
@@ -295,6 +296,8 @@ export async function validateAgentSpec({
   spec,
   tenant_id,
   modelProviderStore,
+  modelRegistry,
+  accessToken,
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
@@ -302,37 +305,57 @@ export async function validateAgentSpec({
   spec: AgentSpec;
   tenant_id: string;
   modelProviderStore: IModelProviderStore;
+  modelRegistry?: ModelRegistry | undefined;
+  accessToken?: string | undefined;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
 }): Promise<void> {
-  const parsed = parseModelFqn(spec.model.name);
-  if (parsed === undefined) {
-    throw new HTTPException(422, {
-      message: `Model name must be a fully qualified "provider/model": ${spec.model.name}`,
+  if (modelRegistry !== undefined) {
+    const resolved = await modelRegistry.resolveModel({
+      name: spec.model.name,
+      accessToken: accessToken ?? '',
     });
-  }
-  const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
-  if (provider === undefined) {
-    throw new HTTPException(422, {
-      message: `Unknown model "${spec.model.name}" — provider not configured`,
-    });
-  }
-  const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
-  if (model === undefined) {
-    throw new HTTPException(422, {
-      message: `Unknown model "${spec.model.name}" — not configured on provider`,
-    });
-  }
-  const reasoningEffort = spec.model.params?.reasoning_effort;
-  if (reasoningEffort !== undefined) {
-    const efforts = model.properties.reasoning_efforts;
-    if (!efforts?.some(effort => effort === reasoningEffort)) {
+    const reasoningEffort = spec.model.params?.reasoning_effort;
+    if (reasoningEffort !== undefined) {
+      const efforts = resolved.reasoningEfforts;
+      if (!efforts?.some(effort => effort === reasoningEffort)) {
+        throw new HTTPException(422, {
+          message: efforts
+            ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
+            : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+        });
+      }
+    }
+  } else {
+    const parsed = parseModelFqn(spec.model.name);
+    if (parsed === undefined) {
       throw new HTTPException(422, {
-        message: efforts
-          ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
-          : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+        message: `Model name must be a fully qualified "provider/model": ${spec.model.name}`,
       });
+    }
+    const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
+    if (provider === undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown model "${spec.model.name}" — provider not configured`,
+      });
+    }
+    const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
+    if (model === undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown model "${spec.model.name}" — not configured on provider`,
+      });
+    }
+    const reasoningEffort = spec.model.params?.reasoning_effort;
+    if (reasoningEffort !== undefined) {
+      const efforts = model.properties.reasoning_efforts;
+      if (!efforts?.some(effort => effort === reasoningEffort)) {
+        throw new HTTPException(422, {
+          message: efforts
+            ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
+            : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+        });
+      }
     }
   }
 

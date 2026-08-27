@@ -83,6 +83,10 @@ configs:
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
+  truefoundry:
+    # When set, models are listed from the TrueFoundry control plane and invoked
+    # via the tenant default AI Gateway (no in-app API-key catalog).
+    controlPlaneUrl: ""
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
 # defaults no longer pull. We source pinned legacy images from the TrueFoundry

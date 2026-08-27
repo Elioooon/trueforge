@@ -17,6 +17,17 @@ import { LogoutButton } from './LogoutButton';
 const authAwareFetch = createAuthAwareFetch();
 const bootClient = createTrueForgeClient({ fetch: authAwareFetch });
 
+function modelProviderSettingsEnabled(settings: object): boolean {
+  if (!('model_providers' in settings)) {
+    return true;
+  }
+  const modelProviders: unknown = settings.model_providers;
+  if (typeof modelProviders !== 'object' || modelProviders === null || !('enabled' in modelProviders)) {
+    return true;
+  }
+  return modelProviders.enabled !== false;
+}
+
 type BootState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
@@ -74,10 +85,11 @@ export function App() {
         }
         const first = models[0];
         const sandboxConfig = { sandbox: { enabled: capabilities.sandbox.enabled } };
+        const modelSettingsEnabled = modelProviderSettingsEnabled(capabilities.settings);
         if (first === undefined) {
           setBoot({
             status: 'ready',
-            openSettings: true,
+            openSettings: modelSettingsEnabled,
             defaultAgentSpec: {
               model: { name: '' },
               config: sandboxConfig,

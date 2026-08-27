@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../icons/Icon.js';
 import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
+import { displayModelLabel } from './draft/DraftModelCatalogPanel.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
@@ -25,12 +26,6 @@ type AgentLibraryRowProps = {
   onTry: () => void;
   onEdit: () => void;
 };
-
-/** Short label for model fqns like `provider/gpt-4.1` → `gpt-4.1`. */
-function displayModelLabel(modelName: string): string {
-  const slash = modelName.lastIndexOf('/');
-  return slash >= 0 ? modelName.slice(slash + 1) : modelName;
-}
 
 function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProps) {
   const spec = agent.agentSpec;

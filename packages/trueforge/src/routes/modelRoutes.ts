@@ -19,7 +19,8 @@ export const listAvailableModelsRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description:
+        'OIDC is configured and the request has no valid session cookie, or TrueFoundry model registry is enabled and the request has no Bearer token or id_token cookie.',
     },
   },
 });

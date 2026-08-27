@@ -22,12 +22,14 @@ import { ulid } from 'ulid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { ResolveUserContext } from '../auth/identity';
-import configuration from '../config';
+import { requireAccessToken } from '../auth/middleware';
+import configuration, { isTrueFoundryModelRegistryEnabled } from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { ModelRegistry } from '../model-registry/ModelRegistry';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -72,6 +74,7 @@ export interface SessionsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   modelProviderStore: IModelProviderStore;
+  modelRegistry?: ModelRegistry | undefined;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   agentStore: IAgentStore;
@@ -242,6 +245,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       spec: body.agent.spec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.modelProviderStore,
+      modelRegistry: deps.modelRegistry,
+      accessToken: isTrueFoundryModelRegistryEnabled() ? requireAccessToken(c) : '',
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
@@ -299,6 +304,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         spec: body.agent.spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.modelProviderStore,
+        modelRegistry: deps.modelRegistry,
+        accessToken: isTrueFoundryModelRegistryEnabled() ? requireAccessToken(c) : '',
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,

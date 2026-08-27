@@ -12,8 +12,9 @@ function monogram(value: string): string {
   return trimmed ? trimmed.charAt(0).toUpperCase() : '?';
 }
 
+/** Strip the provider prefix: `truefoundry/vertex-wif/gemini-2.5-flash` → `vertex-wif/gemini-2.5-flash`. */
 export function displayModelLabel(modelName: string): string {
-  const slash = modelName.lastIndexOf('/');
+  const slash = modelName.indexOf('/');
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
@@ -137,22 +138,24 @@ export function DraftModelCatalogPanel({
                 </div>
                 {section.models.map(model => {
                   const active = selectedName ? model.name === selectedName : filtered[0] === model;
+                  const optionLabel = displayModelLabel(model.name);
                   return (
                     <button
                       key={model.id || model.name}
                       type="button"
                       role="option"
                       aria-selected={active}
+                      title={optionLabel}
                       className={cn(
-                        'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                        'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left text-sm',
                         active
                           ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
                           : 'hover:bg-ghost-button-hover',
                       )}
                       onClick={() => onSelect(model)}
                     >
-                      <span className="truncate font-medium">{displayModelLabel(model.name)}</span>
-                      {active ? <Icon name="check" className="ml-auto size-3.5" /> : null}
+                      <span className="min-w-0 flex-1 truncate font-medium">{optionLabel}</span>
+                      {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
                     </button>
                   );
                 })}

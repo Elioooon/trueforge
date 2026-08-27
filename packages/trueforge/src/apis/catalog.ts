@@ -4,6 +4,7 @@ import type { McpCatalog } from '../catalog/McpCatalog';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
 import type { SandboxCatalog } from '../catalog/SandboxCatalog';
 import type { SkillCatalog } from '../catalog/SkillCatalog';
+import { isTrueFoundryModelRegistryEnabled } from '../config';
 import {
   listMcpServerCatalogRoute,
   listModelProviderCatalogRoute,
@@ -21,6 +22,9 @@ export interface CatalogRouterDeps {
 
 export function createCatalogRouter(deps: CatalogRouterDeps) {
   const listModelProvidersHandler: RouteHandler<typeof listModelProviderCatalogRoute> = c => {
+    if (isTrueFoundryModelRegistryEnabled()) {
+      return c.json({ data: [] }, 200);
+    }
     const loadedProvidersCatalog = deps.modelCatalog.list();
     // make a copy of the loaded providers catalog and add the custom provider sentinel
     const providersCatalog: CatalogModelProvider[] = [...loadedProvidersCatalog];

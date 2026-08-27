@@ -4,13 +4,15 @@ import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefou
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
-import { useOptionalCatalogServer } from '../../server/ServerContext.js';
+import { isModelProviderSettingsEnabled } from '../../server/modelProviderSettings.js';
+import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
@@ -25,6 +27,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
+  const capabilities = useServerCapabilities();
   const shell = useOptionalShellMode();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -32,7 +35,8 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
-  const showConfigureSettingsCta = !loading && models.length === 0 && catalog != null;
+  const showConfigureSettingsCta =
+    !loading && models.length === 0 && catalog != null && isModelProviderSettingsEnabled(capabilities);
   const seededDefaultModelRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -113,24 +117,26 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled || isRunning}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        title="Select model"
-        className={auiButtonClass({
-          variant: 'ghost',
-          size: 'sm',
-          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
-        })}
-        onClick={() => setOpen(v => !v)}
-      >
-        <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
-        <span className="truncate">{label}</span>
-        <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
-      </button>
+      <Tooltip content={label} className="max-w-sm whitespace-normal break-all text-left" side="top">
+        <button
+          type="button"
+          disabled={disabled || isRunning}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          aria-label="Select model"
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'sm',
+            className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
+          })}
+          onClick={() => setOpen(v => !v)}
+        >
+          <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
+          <span className="min-w-0 truncate">{label}</span>
+          <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
+        </button>
+      </Tooltip>
 
       {open ? (
         isMobile || compactLayout ? (
@@ -138,7 +144,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
             {content}
           </BottomSheet>
         ) : (
-          <div className="bg-card-bg text-text-primary absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[18rem] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
+          <div className="bg-card-bg text-text-primary absolute right-0 bottom-full z-50 mb-2 flex max-h-[22rem] w-[min(36rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-border shadow-lg">
             {content}
           </div>
         )

@@ -62,6 +62,7 @@ export const VERCEL_AI_PROVIDER_NAMES = [
   'moonshot',
   'alibaba',
   'together',
+  'truefoundry',
   'custom',
 ] as const;
 
@@ -195,6 +196,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'fireworks':
     case 'zai':
     case 'together':
+    case 'truefoundry':
     case 'custom': {
       return compatibleModel(config);
     }
@@ -737,15 +739,23 @@ export function toAssistantModelMessage({
   };
 }
 
-/** Parse `provider_type/provider_name/model_name`. */
+/** Parse `provider_type/provider_name/model_name`. `model_name` may contain `/`. */
 function parseAssistantMessageSource(
   source: string,
 ): { providerType: string; providerName: string; modelName: string } | undefined {
-  const [providerType, providerName, modelName, ...rest] = source.split('/');
-  if (rest.length > 0 || !providerType || !providerName || !modelName) {
+  const first = source.indexOf('/');
+  if (first <= 0) {
     return undefined;
   }
-  return { providerType, providerName, modelName };
+  const second = source.indexOf('/', first + 1);
+  if (second <= first + 1 || second === source.length - 1) {
+    return undefined;
+  }
+  return {
+    providerType: source.slice(0, first),
+    providerName: source.slice(first + 1, second),
+    modelName: source.slice(second + 1),
+  };
 }
 
 /** Attach when both provider type and configured provider name match `source`. */

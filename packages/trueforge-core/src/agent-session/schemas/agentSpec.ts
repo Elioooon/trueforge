@@ -43,7 +43,9 @@ const ModelSchema = z
     name: z
       .string()
       .min(1, 'model.name must not be empty')
-      .describe('Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.'),
+      .describe(
+        'Model FQN: `provider/model`. The model segment may contain `/`, e.g. `openai/gpt-5.2` or `truefoundry/account/gpt-5`.',
+      ),
     params: ModelParamsSchema.optional(),
   })
   .openapi('Model');

@@ -88,7 +88,7 @@ describe('capabilities routers', () => {
           enabled: false,
           reason: 'Skills run in a sandbox, which is not configured.',
         },
-        settings: { enabled: true },
+        settings: { enabled: true, model_providers: { enabled: true } },
       },
     });
   });
@@ -110,7 +110,7 @@ describe('capabilities routers', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
+        settings: { enabled: true, model_providers: { enabled: true } },
       },
     });
   });
@@ -126,7 +126,7 @@ describe('capabilities routers', () => {
       data: {
         sandbox: { enabled: true },
         skill: { enabled: true },
-        settings: { enabled: true },
+        settings: { enabled: true, model_providers: { enabled: true } },
       },
     });
   });
@@ -255,7 +255,7 @@ describe('capabilities routers', () => {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
           },
-          settings: { enabled: true },
+          settings: { enabled: true, model_providers: { enabled: true } },
         },
       });
 
@@ -270,7 +270,7 @@ describe('capabilities routers', () => {
             enabled: false,
             reason: 'Skills run in a sandbox, which is not configured.',
           },
-          settings: { enabled: false },
+          settings: { enabled: false, model_providers: { enabled: true } },
         },
       });
     });

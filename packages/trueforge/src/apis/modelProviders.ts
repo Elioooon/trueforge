@@ -1,4 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { isTrueFoundryModelRegistryEnabled } from '../config';
 import {
   ModelProviderNameConflictError,
   type IModelProviderStore,
@@ -63,13 +64,21 @@ function toWireProvider(record: ModelProviderRecord): ConfiguredModelProvider {
   };
 }
 
+const EXTERNALLY_MANAGED_MODELS = 'Models are managed by TrueFoundry';
+
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
+    if (isTrueFoundryModelRegistryEnabled()) {
+      return c.json({ error: { message: EXTERNALLY_MANAGED_MODELS } }, 404);
+    }
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);
     return c.json({ data: records.map(toWireProvider) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createModelProviderRoute> = async c => {
+    if (isTrueFoundryModelRegistryEnabled()) {
+      return c.json({ error: { message: EXTERNALLY_MANAGED_MODELS } }, 404);
+    }
     const body: CreateModelProviderRequest = c.req.valid('json');
     const provider = body.manifest;
     const name = modelProviderName(provider);
@@ -90,6 +99,9 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
+    if (isTrueFoundryModelRegistryEnabled()) {
+      return c.json({ error: { message: EXTERNALLY_MANAGED_MODELS } }, 404);
+    }
     const body: UpdateModelProviderRequest = c.req.valid('json');
     const provider = body.manifest;
     const name = modelProviderName(provider);

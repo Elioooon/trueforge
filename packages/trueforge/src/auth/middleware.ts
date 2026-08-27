@@ -32,6 +32,15 @@ export function readBearerIdToken(c: Context): string | undefined {
   return token.length > 0 ? token : undefined;
 }
 
+/** Bearer or cookie token required for TrueFoundry listing and gateway calls. */
+export function requireAccessToken(c: Context): string {
+  const token = readIdToken(c);
+  if (token === undefined) {
+    throw new HTTPException(401, { message: 'Authentication token required to list or call TrueFoundry models' });
+  }
+  return token;
+}
+
 /**
  * Prefer Bearer over the browser cookie when both are sent (explicit API auth wins).
  */

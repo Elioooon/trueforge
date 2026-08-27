@@ -17,9 +17,18 @@ const SkillCapabilitySchema = z
   })
   .openapi('SkillCapability');
 
+const ModelProvidersCapabilitySchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe('Whether in-app model provider settings are enabled. False when models come from TrueFoundry.'),
+  })
+  .openapi('ModelProvidersCapability');
+
 const SettingsCapabilitySchema = z
   .object({
     enabled: z.boolean().describe('Whether the settings UI/API is enabled.'),
+    model_providers: ModelProvidersCapabilitySchema,
   })
   .openapi('SettingsCapability');
 

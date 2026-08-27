@@ -31,8 +31,15 @@ export const ModelPropertiesSchema = z
 
 export const ConfiguredModelSchema = z
   .object({
-    model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
-    name: NameSchema,
+    model_id: z
+      .string()
+      .min(1)
+      .describe('Upstream, provider-specific identifier sent to the provider API. May contain `/`.'),
+    name: z
+      .string()
+      .min(1)
+      .max(256)
+      .describe('Configured model name. May contain `/` (e.g. `account/model` on TrueFoundry).'),
     properties: ModelPropertiesSchema,
   })
   .strict()
@@ -79,7 +86,7 @@ const ModelProviderManifestBaseSchema = z
  * one of each because the `(tenant_id, name)` primary key replaces the row rather than adding a
  * sibling. `base_url` defaults to the adapter's endpoint and stays overridable.
  */
-function wellKnownProviderSchema<Type extends Exclude<ModelProviderType, 'custom'>>({
+function wellKnownProviderSchema<Type extends Exclude<ModelProviderType, 'custom' | 'truefoundry'>>({
   type,
   base_url,
 }: {
@@ -132,6 +139,17 @@ const AlibabaModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
 }).openapi('AlibabaModelProvider');
 
+/**
+ * TrueFoundry AI Gateway: OpenAI-compatible. No global default URL — the control-plane
+ * registry fills `base_url` from the tenant's default installation; local settings must set one.
+ */
+const TrueFoundryModelProviderSchema = ModelProviderManifestBaseSchema.extend({
+  type: z.literal('truefoundry'),
+  base_url: z.url().describe('TrueFoundry AI Gateway OpenAI-compatible base URL.'),
+})
+  .strict()
+  .openapi('TrueFoundryModelProvider');
+
 /** The one type a caller names, because only it supplies its own endpoint. */
 const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
@@ -165,6 +183,7 @@ const ModelProviderBodySchema = z
     MoonshotModelProviderSchema,
     TogetherAIModelProviderSchema,
     AlibabaModelProviderSchema,
+    TrueFoundryModelProviderSchema,
     CustomModelProviderSchema,
   ])
   .superRefine(refineModelProviderManifest);
@@ -225,8 +244,10 @@ export const AvailableModelSchema = z
   .object({
     name: z
       .string()
-      .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
-    model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
+      .describe(
+        'Fully qualified name `provider_name/model_name`. The model segment may contain `/`, e.g. "openai/gpt-5-6-sol" or "truefoundry/account/gpt-5". Unique within a tenant.',
+      ),
+    model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API. May contain `/`.'),
     provider: AvailableModelProviderSchema,
     properties: ModelPropertiesSchema,
   })

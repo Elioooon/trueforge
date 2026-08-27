@@ -13,6 +13,11 @@ import {
 } from '../schemas/modelProvider';
 import { OpenApiTag } from './openapiTags';
 
+const externallyManagedModels = {
+  content: { 'application/json': { schema: RequestErrorResponseSchema } },
+  description: 'Model providers are managed by TrueFoundry (`TRUEFOUNDRY_CONTROL_PLANE_URL` is set).',
+} as const;
+
 export const listModelProvidersRoute = createRoute({
   method: 'get',
   path: '/',
@@ -34,6 +39,7 @@ export const listModelProvidersRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
+    404: externallyManagedModels,
   },
 });
 
@@ -66,6 +72,7 @@ export const createModelProviderRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'A model provider with this name already exists.',
     },
+    404: externallyManagedModels,
   },
 });
 
@@ -94,5 +101,6 @@ export const putModelProviderRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
+    404: externallyManagedModels,
   },
 });

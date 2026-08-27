@@ -2,6 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import { isAdmin, resolveUserContext } from '../auth/identity';
+import { isTrueFoundryModelRegistryEnabled } from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
@@ -48,7 +49,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
-          settings: { enabled: settingsEnabled },
+          settings: {
+            enabled: settingsEnabled,
+            model_providers: { enabled: !isTrueFoundryModelRegistryEnabled() },
+          },
         },
       },
       200,

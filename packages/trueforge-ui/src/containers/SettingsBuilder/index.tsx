@@ -8,7 +8,12 @@ import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
-import { useOptionalCatalogServer, useOptionalRefreshServerCapabilities } from '@/server/ServerContext.js';
+import { isModelProviderSettingsEnabled } from '@/server/modelProviderSettings.js';
+import {
+  useOptionalCatalogServer,
+  useOptionalRefreshServerCapabilities,
+  useServerCapabilities,
+} from '@/server/ServerContext.js';
 import { useShellMode, type SettingsSection } from '@/server/ShellModeContext.js';
 
 // Section modules (and their list/catalog APIs) load only when that tab mounts.
@@ -29,12 +34,14 @@ function SettingsSectionFallback() {
 const TruefoundrySettingsBuilder = () => {
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
+  const capabilities = useServerCapabilities();
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
   // dock/widget panels are ~mobile width even on a wide viewport — keep Settings stacked.
   const compact = useCompactLayout();
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
+  const hasModelSettings = isModelProviderSettingsEnabled(capabilities);
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
@@ -50,13 +57,16 @@ const TruefoundrySettingsBuilder = () => {
   }, [settingsOpen, refreshDraftCatalog, refreshServerCapabilities]);
 
   useEffect(() => {
+    if (!hasModelSettings && section === 'models') {
+      setSettingsOpen(settingsOpen, 'connectors');
+    }
     if (!hasSkills && section === 'skills') {
-      setSettingsOpen(settingsOpen, 'models');
+      setSettingsOpen(settingsOpen, hasModelSettings ? 'models' : 'connectors');
     }
     if (!hasSandbox && section === 'sandbox') {
-      setSettingsOpen(settingsOpen, 'models');
+      setSettingsOpen(settingsOpen, hasModelSettings ? 'models' : 'connectors');
     }
-  }, [hasSkills, hasSandbox, section, settingsOpen, setSettingsOpen]);
+  }, [hasModelSettings, hasSkills, hasSandbox, section, settingsOpen, setSettingsOpen]);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -81,10 +91,11 @@ const TruefoundrySettingsBuilder = () => {
       id: SettingsSection;
       label: string;
       icon: 'cpu' | 'plug' | 'lightbulb' | 'cube';
-    }> = [
-      { id: 'models', label: 'Models', icon: 'cpu' },
-      { id: 'connectors', label: 'Connectors', icon: 'plug' },
-    ];
+    }> = [];
+    if (hasModelSettings) {
+      baseSections.push({ id: 'models', label: 'Models', icon: 'cpu' });
+    }
+    baseSections.push({ id: 'connectors', label: 'Connectors', icon: 'plug' });
     if (hasSkills) {
       baseSections.push({ id: 'skills', label: 'Skills', icon: 'lightbulb' });
     }
@@ -92,7 +103,7 @@ const TruefoundrySettingsBuilder = () => {
       baseSections.push({ id: 'sandbox', label: 'Sandbox providers', icon: 'cube' });
     }
     return baseSections;
-  }, [hasSkills, hasSandbox]);
+  }, [hasModelSettings, hasSkills, hasSandbox]);
 
   if (!settingsOpen || !catalog) return null;
 
@@ -147,7 +158,7 @@ const TruefoundrySettingsBuilder = () => {
         <section className="flex flex-col h-full flex-1 overflow-y-hidden px-6 py-4">
           <div className="w-full max-w-210 h-full min-h-0 flex flex-col mx-auto">
             <Suspense fallback={<SettingsSectionFallback />}>
-              {section === 'models' ? <ModelSettings /> : null}
+              {section === 'models' && hasModelSettings ? <ModelSettings /> : null}
               {section === 'connectors' ? <ConnectorSettings /> : null}
               {section === 'skills' && hasSkills ? <SkillSettings /> : null}
               {section === 'sandbox' && hasSandbox ? <SandboxSettings /> : null}

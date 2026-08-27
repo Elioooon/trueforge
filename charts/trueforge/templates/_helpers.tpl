@@ -185,6 +185,10 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "OIDC_SCOPES" "value" .Values.configs.oidc.scopes) -}}
 {{- end -}}
 
+{{- if .Values.configs.truefoundry.controlPlaneUrl -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_CONTROL_PLANE_URL" "value" .Values.configs.truefoundry.controlPlaneUrl) -}}
+{{- end -}}
+
 {{- range .Values.server.extraEnv -}}
 {{- $env = append $env . -}}
 {{- end -}}
