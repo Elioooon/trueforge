@@ -296,11 +296,11 @@
         "additionalProperties": false,
         "properties": {
           "model_id": {
-            "description": "Upstream, provider-specific identifier sent to the provider API.",
+            "description": "Upstream, provider-specific identifier sent to the provider API. May contain `/`.",
             "type": "string"
           },
           "name": {
-            "description": "Fully qualified name `provider_name/model_name`, e.g. \"openai/gpt-5-6-sol\". Unique within a tenant.",
+            "description": "Fully qualified name `provider_name/model_name`. The model segment may contain `/`, e.g. \"openai/gpt-5-6-sol\" or \"truefoundry/account/gpt-5\". Unique within a tenant.",
             "type": "string"
           },
           "properties": {
@@ -488,12 +488,15 @@
         "additionalProperties": false,
         "properties": {
           "model_id": {
-            "description": "Upstream, provider-specific identifier sent to the provider API.",
+            "description": "Upstream, provider-specific identifier sent to the provider API. May contain `/`.",
             "minLength": 1,
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "description": "Configured model name. May contain `/` (e.g. `account/model` on TrueFoundry).",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
           },
           "properties": {
             "$ref": "#/components/schemas/ModelProperties"
@@ -632,7 +635,8 @@
           "zai",
           "moonshot",
           "alibaba",
-          "together"
+          "together",
+          "truefoundry"
         ],
         "type": "string"
       },
@@ -793,12 +797,15 @@
         "additionalProperties": false,
         "properties": {
           "model_id": {
-            "description": "Upstream, provider-specific identifier sent to the provider API.",
+            "description": "Upstream, provider-specific identifier sent to the provider API. May contain `/`.",
             "minLength": 1,
             "type": "string"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "description": "Configured model name. May contain `/` (e.g. `account/model` on TrueFoundry).",
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
           },
           "properties": {
             "$ref": "#/components/schemas/ModelProperties"
@@ -2076,7 +2083,7 @@
       "Model": {
         "properties": {
           "name": {
-            "description": "Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.",
+            "description": "Model FQN: `provider/model`. The model segment may contain `/`, e.g. `openai/gpt-5.2` or `truefoundry/account/gpt-5`.",
             "minLength": 1,
             "type": "string"
           },
@@ -2392,6 +2399,7 @@
             "moonshot": "#/components/schemas/MoonshotModelProvider",
             "openai": "#/components/schemas/OpenAIModelProvider",
             "together": "#/components/schemas/TogetherAIModelProvider",
+            "truefoundry": "#/components/schemas/TrueFoundryModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
@@ -2422,9 +2430,24 @@
             "$ref": "#/components/schemas/AlibabaModelProvider"
           },
           {
+            "$ref": "#/components/schemas/TrueFoundryModelProvider"
+          },
+          {
             "$ref": "#/components/schemas/CustomModelProvider"
           }
         ]
+      },
+      "ModelProvidersCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether in-app model provider settings are enabled. False when models come from TrueFoundry.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
       },
       "MoonshotModelProvider": {
         "additionalProperties": false,
@@ -3199,10 +3222,14 @@
           "enabled": {
             "description": "Whether the settings UI/API is enabled.",
             "type": "boolean"
+          },
+          "model_providers": {
+            "$ref": "#/components/schemas/ModelProvidersCapability"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "model_providers"
         ],
         "type": "object"
       },
@@ -3669,6 +3696,40 @@
           "created_at",
           "thread_id",
           "tool_calls"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "TrueFoundry AI Gateway OpenAI-compatible base URL.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Models exposed by this provider (at least one).",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredModel"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth",
+          "models",
+          "type",
+          "base_url"
         ],
         "type": "object"
       },
@@ -5456,7 +5517,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "OIDC is configured and the request has no valid session cookie, or TrueFoundry model registry is enabled and the request has no Bearer token or id_token cookie."
           }
         },
         "summary": "List models for chat",
@@ -6520,6 +6581,16 @@
             },
             "description": "Invalid request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "TrueFoundry model registry is enabled and the request has no Bearer token or id_token cookie."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -7265,6 +7336,16 @@
               }
             },
             "description": "OIDC is configured and the caller is authenticated but not an admin."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Model providers are managed by TrueFoundry (`TRUEFOUNDRY_CONTROL_PLANE_URL` is set)."
           }
         },
         "summary": "List configured model providers",
@@ -7309,6 +7390,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Model providers are managed by TrueFoundry (`TRUEFOUNDRY_CONTROL_PLANE_URL` is set)."
           },
           "409": {
             "content": {
@@ -7363,6 +7454,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Model providers are managed by TrueFoundry (`TRUEFOUNDRY_CONTROL_PLANE_URL` is set)."
           }
         },
         "summary": "Create or replace a model provider",

@@ -30,6 +30,7 @@ export class ModelProvidersClient {
      *
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -103,6 +104,17 @@ export class ModelProvidersClient {
                         }),
                         _response.rawResponse,
                     );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -127,6 +139,7 @@ export class ModelProvidersClient {
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -215,6 +228,17 @@ export class ModelProvidersClient {
                         }),
                         _response.rawResponse,
                     );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 409:
                     throw new TrueForge.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -250,6 +274,7 @@ export class ModelProvidersClient {
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -328,6 +353,17 @@ export class ModelProvidersClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

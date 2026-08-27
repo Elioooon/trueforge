@@ -3,16 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ModelProvidersCapability } from "./ModelProvidersCapability.js";
 
 export const SettingsCapability: core.serialization.ObjectSchema<
     serializers.SettingsCapability.Raw,
     TrueForge.SettingsCapability
 > = core.serialization.object({
     enabled: core.serialization.boolean(),
+    modelProviders: core.serialization.property("model_providers", ModelProvidersCapability),
 });
 
 export declare namespace SettingsCapability {
     export interface Raw {
         enabled: boolean;
+        model_providers: ModelProvidersCapability.Raw;
     }
 }

@@ -3,9 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface AvailableModel {
-    /** Upstream, provider-specific identifier sent to the provider API. */
+    /** Upstream, provider-specific identifier sent to the provider API. May contain `/`. */
     modelId: string;
-    /** Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant. */
+    /** Fully qualified name `provider_name/model_name`. The model segment may contain `/`, e.g. "openai/gpt-5-6-sol" or "truefoundry/account/gpt-5". Unique within a tenant. */
     name: string;
     properties: TrueForge.ModelProperties;
     provider: TrueForge.AvailableModelProvider;

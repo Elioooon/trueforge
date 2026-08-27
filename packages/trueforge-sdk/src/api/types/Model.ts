@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface Model {
-    /** Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. */
+    /** Model FQN: `provider/model`. The model segment may contain `/`, e.g. `openai/gpt-5.2` or `truefoundry/account/gpt-5`. */
     name: string;
     params?: TrueForge.ModelParams;
 }

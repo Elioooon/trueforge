@@ -12,7 +12,7 @@ describe("ServerClient", () => {
         const rawResponseBody = {
             data: {
                 sandbox: { enabled: true },
-                settings: { enabled: true },
+                settings: { enabled: true, model_providers: { enabled: true } },
                 skill: { enabled: true, reason: "reason" },
             },
         };
@@ -33,6 +33,9 @@ describe("ServerClient", () => {
                 },
                 settings: {
                     enabled: true,
+                    modelProviders: {
+                        enabled: true,
+                    },
                 },
                 skill: {
                     enabled: true,

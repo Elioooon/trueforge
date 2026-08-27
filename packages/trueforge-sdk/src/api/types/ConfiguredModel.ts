@@ -3,8 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface ConfiguredModel {
-    /** Upstream, provider-specific identifier sent to the provider API. */
+    /** Upstream, provider-specific identifier sent to the provider API. May contain `/`. */
     modelId: string;
-    name: TrueForge.ResourceName;
+    /** Configured model name. May contain `/` (e.g. `account/model` on TrueFoundry). */
+    name: string;
     properties: TrueForge.ModelProperties;
 }
