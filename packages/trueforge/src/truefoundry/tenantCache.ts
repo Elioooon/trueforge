@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import { LRUCache } from 'lru-cache';
 import type { AvailableModel, ModelProperties } from '../schemas/modelProvider';
 import type { TrueFoundryControlPlaneClient } from './TrueFoundryControlPlaneClient';
 import { indexProviderCatalog, mapEnabledModels, resolveDefaultGatewayUrl } from './mapEnabledModels';
@@ -8,111 +9,65 @@ export interface TenantModelBundle {
   gatewayUrl: string;
 }
 
-interface Timed<T> {
-  value: T;
-  expiresAt: number;
-}
+const CATALOG_KEY = 'catalog';
 
 export class TrueFoundryTenantCache {
-  readonly #client: TrueFoundryControlPlaneClient;
-  readonly #ttlMs: number;
-  readonly #tenantNames = new Map<string, Timed<string>>();
-  readonly #bundles = new Map<string, Timed<TenantModelBundle>>();
-  #catalog: Timed<Map<string, ModelProperties>> | undefined;
-  readonly #inflightTenantNames = new Map<string, Promise<string>>();
-  readonly #inflightBundles = new Map<string, Promise<TenantModelBundle>>();
-  #inflightCatalog: Promise<Map<string, ModelProperties>> | undefined;
+  readonly #tenantNames: LRUCache<string, string>;
+  readonly #bundles: LRUCache<string, TenantModelBundle, { accessToken: string }>;
+  readonly #catalog: LRUCache<string, Map<string, ModelProperties>, { accessToken: string }>;
 
   constructor(input: { client: TrueFoundryControlPlaneClient; ttlMs: number }) {
-    this.#client = input.client;
-    this.#ttlMs = input.ttlMs;
+    const { client, ttlMs } = input;
+
+    this.#tenantNames = new LRUCache<string, string>({
+      max: 500,
+      ttl: ttlMs,
+      fetchMethod: async accessToken => {
+        const session = await client.getSession(accessToken);
+        if (session === undefined) {
+          throw new HTTPException(401, { message: 'Authentication token required to list or call TrueFoundry models' });
+        }
+        return session.tenantName;
+      },
+    });
+
+    this.#catalog = new LRUCache<string, Map<string, ModelProperties>, { accessToken: string }>({
+      max: 1,
+      ttl: ttlMs,
+      fetchMethod: async (_key, _stale, { context }) => {
+        return indexProviderCatalog(await client.listProviderCatalog(context.accessToken));
+      },
+    });
+
+    this.#bundles = new LRUCache<string, TenantModelBundle, { accessToken: string }>({
+      max: 100,
+      ttl: ttlMs,
+      fetchMethod: async (_tenantName, _stale, { context }) => {
+        const [integrations, catalog, installations] = await Promise.all([
+          client.listProviderIntegrations(context.accessToken),
+          this.#catalog.fetch(CATALOG_KEY, { context }),
+          client.listGatewayInstallations(context.accessToken),
+        ]);
+        if (catalog === undefined) {
+          throw new HTTPException(502, { message: 'Failed to load TrueFoundry provider catalog' });
+        }
+        return {
+          models: mapEnabledModels({ integrations, catalog }),
+          gatewayUrl: resolveDefaultGatewayUrl(installations),
+        };
+      },
+    });
   }
 
   async getBundle(accessToken: string): Promise<TenantModelBundle> {
-    const tenantName = await this.#tenantName(accessToken);
-    const cached = this.#read(this.#bundles, tenantName);
-    if (cached !== undefined) {
-      return cached;
-    }
-    const inflight = this.#inflightBundles.get(tenantName);
-    if (inflight !== undefined) {
-      return inflight;
-    }
-    const pending = this.#loadBundle({ accessToken, tenantName }).finally(() => {
-      this.#inflightBundles.delete(tenantName);
-    });
-    this.#inflightBundles.set(tenantName, pending);
-    return pending;
-  }
-
-  async #tenantName(accessToken: string): Promise<string> {
-    const cached = this.#read(this.#tenantNames, accessToken);
-    if (cached !== undefined) {
-      return cached;
-    }
-    const inflight = this.#inflightTenantNames.get(accessToken);
-    if (inflight !== undefined) {
-      return inflight;
-    }
-    const pending = this.#loadTenantName(accessToken).finally(() => {
-      this.#inflightTenantNames.delete(accessToken);
-    });
-    this.#inflightTenantNames.set(accessToken, pending);
-    return pending;
-  }
-
-  async #loadTenantName(accessToken: string): Promise<string> {
-    const session = await this.#client.getSession(accessToken);
-    if (session === undefined) {
+    const tenantName = await this.#tenantNames.fetch(accessToken);
+    if (tenantName === undefined) {
       throw new HTTPException(401, { message: 'Authentication token required to list or call TrueFoundry models' });
     }
-    this.#tenantNames.set(accessToken, { value: session.tenantName, expiresAt: Date.now() + this.#ttlMs });
-    return session.tenantName;
-  }
-
-  async #loadBundle(input: { accessToken: string; tenantName: string }): Promise<TenantModelBundle> {
-    const [integrations, catalog, installations] = await Promise.all([
-      this.#client.listProviderIntegrations(input.accessToken),
-      this.#providerCatalog(input.accessToken),
-      this.#client.listGatewayInstallations(input.accessToken),
-    ]);
-    const bundle: TenantModelBundle = {
-      models: mapEnabledModels({ integrations, catalog }),
-      gatewayUrl: resolveDefaultGatewayUrl(installations),
-    };
-    this.#bundles.set(input.tenantName, { value: bundle, expiresAt: Date.now() + this.#ttlMs });
+    const bundle = await this.#bundles.fetch(tenantName, { context: { accessToken } });
+    if (bundle === undefined) {
+      throw new HTTPException(502, { message: 'Failed to load TrueFoundry models' });
+    }
     return bundle;
-  }
-
-  async #providerCatalog(accessToken: string): Promise<Map<string, ModelProperties>> {
-    if (this.#catalog !== undefined && this.#catalog.expiresAt > Date.now()) {
-      return this.#catalog.value;
-    }
-    if (this.#inflightCatalog !== undefined) {
-      return this.#inflightCatalog;
-    }
-    this.#inflightCatalog = this.#client
-      .listProviderCatalog(accessToken)
-      .then(payload => {
-        const indexed = indexProviderCatalog(payload);
-        this.#catalog = { value: indexed, expiresAt: Date.now() + this.#ttlMs };
-        return indexed;
-      })
-      .finally(() => {
-        this.#inflightCatalog = undefined;
-      });
-    return this.#inflightCatalog;
-  }
-
-  #read<T>(store: Map<string, Timed<T>>, key: string): T | undefined {
-    const entry = store.get(key);
-    if (entry === undefined) {
-      return undefined;
-    }
-    if (entry.expiresAt <= Date.now()) {
-      store.delete(key);
-      return undefined;
-    }
-    return entry.value;
   }
 }
