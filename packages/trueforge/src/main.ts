@@ -207,7 +207,7 @@ async function createDistributedPersistence(options: {
 async function createServerRuntime<TTransaction>(persistence: ServerPersistence<TTransaction>, logger: Logger) {
   const {
     sessionStore,
-    modelProviderStore,
+    modelProviderStore: persistenceModelProviderStore,
     withTransaction,
     mcpServerStore,
     tokenStore,
@@ -218,6 +218,17 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     destroyDb,
     redis,
   } = persistence;
+
+  let modelProviderStore: IModelProviderStore<TTransaction> = persistenceModelProviderStore;
+  if (configuration.TRUEFOUNDRY_REGISTRY !== undefined) {
+    const { TrueFoundryModelProviderStore } = await import('./truefoundry/TrueFoundryModelProviderStore');
+    const trueFoundryModelProviderStore = new TrueFoundryModelProviderStore<TTransaction>({
+      controlPlaneUrl: configuration.TRUEFOUNDRY_REGISTRY.controlPlaneUrl,
+      cacheTtlMs: configuration.TRUEFOUNDRY_REGISTRY.cacheTtlSeconds * 1000,
+      logger,
+    });
+    modelProviderStore = trueFoundryModelProviderStore;
+  }
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();

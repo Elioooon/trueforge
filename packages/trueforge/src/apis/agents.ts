@@ -11,7 +11,6 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
-import type { ModelRegistry } from '../model-registry/ModelRegistry';
 import {
   createAgentRoute,
   deleteAgentRoute,
@@ -28,7 +27,6 @@ import { TENANT_ID } from './sessions';
 export interface AgentsRouterDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   modelProviderStore: IModelProviderStore<TTransaction>;
-  modelRegistry?: ModelRegistry | undefined;
   mcpServerStore: IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -57,7 +55,6 @@ async function validateManifest<TTransaction>({
     spec,
     tenant_id: TENANT_ID,
     modelProviderStore: deps.modelProviderStore,
-    modelRegistry: deps.modelRegistry,
     accessToken,
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,

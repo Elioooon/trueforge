@@ -32,12 +32,10 @@ import { requireAccessToken } from '../auth/middleware';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
-import type { IModelProviderStore } from '../db/modelProviderStore';
+import { optionalAccessToken, type IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
-import { LocalModelRegistry } from '../model-registry/LocalModelRegistry';
-import type { ModelRegistry } from '../model-registry/ModelRegistry';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -53,6 +51,7 @@ import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
   getMcpConnection,
+  getModelDetails,
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -106,7 +105,6 @@ export interface TurnsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   modelProviderStore: IModelProviderStore;
-  modelRegistry?: ModelRegistry | undefined;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
@@ -128,7 +126,7 @@ function createTurnResolver(deps: {
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
-  modelRegistry: ModelRegistry;
+  modelProviderStore: IModelProviderStore;
   accessToken: string;
   logger: Logger;
   signal: AbortSignal;
@@ -141,7 +139,7 @@ function createTurnResolver(deps: {
     skillStore,
     sandboxProviderStore,
     agentStore,
-    modelRegistry,
+    modelProviderStore,
     accessToken,
     logger,
     signal,
@@ -150,9 +148,11 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const resolved = await modelRegistry.resolveModel({
+      const resolved = await getModelDetails({
+        tenant_id: TENANT_ID,
         name,
-        accessToken,
+        store: modelProviderStore,
+        ...optionalAccessToken(accessToken),
       });
       return {
         modelClient: new VercelAILLM({
@@ -366,7 +366,6 @@ const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
 
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
-  const modelRegistry = deps.modelRegistry ?? new LocalModelRegistry(deps.modelProviderStore);
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -518,7 +517,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
       agentStore: deps.agentStore,
-      modelRegistry,
+      modelProviderStore: deps.modelProviderStore,
       accessToken,
       logger: deps.logger,
       signal: abortController.signal,

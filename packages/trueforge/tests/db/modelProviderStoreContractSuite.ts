@@ -91,7 +91,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const providers = await store.listProviders(TENANT);
+    const providers = await store.listProviders({ tenant_id: TENANT });
     expect(providers).toEqual([updated]);
   });
 
@@ -101,7 +101,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'anthropic', manifest: anthropic });
 
-    const providers = await store.listProviders(TENANT);
+    const providers = await store.listProviders({ tenant_id: TENANT });
     expect(providers.map(record => record.name)).toEqual(['anthropic', 'openai']);
     expect(providers.every(record => record.tenant_id === TENANT)).toBe(true);
   });
@@ -118,7 +118,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: TENANT, name: 'openai', manifest: openai });
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
 
-    const models = await store.listModels(TENANT);
+    const models = await store.listModels({ tenant_id: TENANT });
     expect(models).toEqual([
       {
         name: 'anthropic/claude-sonnet-4-6',

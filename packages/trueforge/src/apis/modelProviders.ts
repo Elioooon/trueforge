@@ -71,7 +71,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
     if (isTrueFoundryModelRegistryEnabled()) {
       return c.json({ error: { message: EXTERNALLY_MANAGED_MODELS } }, 404);
     }
-    const records = await deps.modelProviderStore.listProviders(TENANT_ID);
+    const records = await deps.modelProviderStore.listProviders({ tenant_id: TENANT_ID });
     return c.json({ data: records.map(toWireProvider) }, 200);
   };
 

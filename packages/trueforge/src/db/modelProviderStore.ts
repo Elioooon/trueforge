@@ -1,7 +1,7 @@
 /**
- * DB-backed configured model providers: one row per provider per tenant,
- * identity as columns plus the Zod-validated `ModelProviderManifest` document as jsonb.
- * Implementations: PostgresModelProviderStore and SqliteModelProviderStore.
+ * Configured model providers: identity columns plus the Zod-validated
+ * `ModelProviderManifest` document. Implementations: Postgres, Sqlite, and
+ * TrueFoundry (read-only control-plane listing).
  */
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
@@ -16,9 +16,25 @@ export interface ModelProviderRecord {
   updated_at: string;
 }
 
+export interface ListModelProvidersInput {
+  tenant_id: string;
+  /** Caller token; required by the TrueFoundry store, ignored by DB stores. */
+  accessToken?: string;
+}
+
 export interface GetModelProviderInput {
   tenant_id: string;
   name: string;
+  /** Caller token; required by the TrueFoundry store, ignored by DB stores. */
+  accessToken?: string;
+}
+
+/** Spread into read inputs so `accessToken` is omitted when unset/blank. */
+export function optionalAccessToken(accessToken: string | undefined): { accessToken?: string } {
+  if (accessToken === undefined || accessToken.length === 0) {
+    return {};
+  }
+  return { accessToken };
 }
 
 export interface CreateModelProviderInput {
@@ -44,8 +60,19 @@ export class ModelProviderNameConflictError extends Error {
   }
 }
 
+/** Thrown by stores that do not persist provider configuration (TrueFoundry). */
+export class ModelProviderStoreNotImplementedError extends Error {
+  readonly operation: string;
+
+  constructor(operation: string) {
+    super(`Model provider store does not implement ${operation}`);
+    this.name = 'ModelProviderStoreNotImplementedError';
+    this.operation = operation;
+  }
+}
+
 export interface IModelProviderStore<TTransaction = never> {
-  listProviders(tenantId: string, transaction?: TTransaction): Promise<ModelProviderRecord[]>;
+  listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]>;
   getProvider(input: GetModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord | undefined>;
   /**
    * Load one provider while holding a row lock for the lifetime of `transaction`.
@@ -61,7 +88,7 @@ export interface IModelProviderStore<TTransaction = never> {
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(tenantId: string, transaction?: TTransaction): Promise<AvailableModel[]>;
+  listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
 }
 
 /** Application-side flatten shared by both store implementations. */

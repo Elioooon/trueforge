@@ -37,8 +37,6 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
-import { createModelRegistry } from './model-registry/createModelRegistry';
-import type { ModelRegistry } from './model-registry/ModelRegistry';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
@@ -149,8 +147,6 @@ export interface ServerDeps<TTransaction> {
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
   modelProviderStore: IModelProviderStore<TTransaction>;
-  /** Defaults to local store-backed registry when omitted. */
-  modelRegistry?: ModelRegistry | undefined;
   withTransaction: WithTransaction<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -175,7 +171,6 @@ export interface ServerDeps<TTransaction> {
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authEnabled = deps.oidcClient != null;
-  const modelRegistry = deps.modelRegistry ?? createModelRegistry(deps.modelProviderStore, deps.logger);
 
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
@@ -197,7 +192,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createModelsRouter({
         modelProviderStore: deps.modelProviderStore,
-        modelRegistry,
         withTransaction: deps.withTransaction,
       }),
     ),
@@ -250,7 +244,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAgentsRouter({
         agentStore: deps.agentStore,
         modelProviderStore: deps.modelProviderStore,
-        modelRegistry,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
@@ -292,7 +285,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
         modelProviderStore: deps.modelProviderStore,
-        modelRegistry,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
@@ -312,7 +304,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
         modelProviderStore: deps.modelProviderStore,
-        modelRegistry,
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
