@@ -3,9 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface TrueFoundryModelProvider {
-    auth: TrueForge.ModelProviderAuth;
-    /** TrueFoundry AI Gateway OpenAI-compatible base URL. */
-    baseUrl: string;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ConfiguredModel[];
     type: "truefoundry";

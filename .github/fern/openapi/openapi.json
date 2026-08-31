@@ -3700,16 +3700,7 @@
         "type": "object"
       },
       "TrueFoundryModelProvider": {
-        "additionalProperties": false,
         "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "description": "TrueFoundry AI Gateway OpenAI-compatible base URL.",
-            "format": "uri",
-            "type": "string"
-          },
           "models": {
             "description": "Models exposed by this provider (at least one).",
             "items": {
@@ -3726,10 +3717,8 @@
           }
         },
         "required": [
-          "auth",
-          "models",
           "type",
-          "base_url"
+          "models"
         ],
         "type": "object"
       },

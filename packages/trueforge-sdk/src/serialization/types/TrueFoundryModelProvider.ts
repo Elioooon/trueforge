@@ -4,22 +4,17 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ConfiguredModel } from "./ConfiguredModel.js";
-import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
 export const TrueFoundryModelProvider: core.serialization.ObjectSchema<
     serializers.TrueFoundryModelProvider.Raw,
     TrueForge.TrueFoundryModelProvider
 > = core.serialization.object({
-    auth: ModelProviderAuth,
-    baseUrl: core.serialization.property("base_url", core.serialization.string()),
     models: core.serialization.list(ConfiguredModel),
     type: core.serialization.stringLiteral("truefoundry"),
 });
 
 export declare namespace TrueFoundryModelProvider {
     export interface Raw {
-        auth: ModelProviderAuth.Raw;
-        base_url: string;
         models: ConfiguredModel.Raw[];
         type: "truefoundry";
     }

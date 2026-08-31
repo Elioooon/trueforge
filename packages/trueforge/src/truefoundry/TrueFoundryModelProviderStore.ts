@@ -11,8 +11,8 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
-import { TRUEFOUNDRY_MODEL_PROVIDER_NAME } from './mapEnabledModels';
-import { TrueFoundryTenantCache, type TenantModelBundle } from './tenantCache';
+import type { TrueFoundryEnabledModel } from './mapEnabledModels';
+import { TrueFoundryTenantCache } from './tenantCache';
 import { TrueFoundryControlPlaneClient } from './TrueFoundryControlPlaneClient';
 
 function requireAccessToken(accessToken: string | undefined): string {
@@ -41,7 +41,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
     void transaction;
-    return [await this.#record(input)];
+    return this.#records(input);
   }
 
   async getProvider(
@@ -49,10 +49,8 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     transaction?: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void transaction;
-    if (input.name !== TRUEFOUNDRY_MODEL_PROVIDER_NAME) {
-      return undefined;
-    }
-    return this.#record(input);
+    const records = await this.#records(input);
+    return records.find(record => record.name === input.name);
   }
 
   getProviderForUpdate(
@@ -74,28 +72,40 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 
-  async #record(input: { tenant_id: string; accessToken?: string }): Promise<ModelProviderRecord> {
+  async #records(input: { tenant_id: string; accessToken?: string }): Promise<ModelProviderRecord[]> {
     const accessToken = requireAccessToken(input.accessToken);
-    const bundle = await this.#cache.getBundle(accessToken);
-    const now = new Date().toISOString();
-    return {
-      tenant_id: input.tenant_id,
-      name: TRUEFOUNDRY_MODEL_PROVIDER_NAME,
-      manifest: toManifest({ bundle, accessToken }),
-      created_at: now,
-      updated_at: now,
-    };
+    return toRecords({ tenant_id: input.tenant_id, models: await this.#cache.getModels(accessToken) });
   }
 }
 
-function toManifest(input: { bundle: TenantModelBundle; accessToken: string }): ModelProviderManifest {
+function toRecords(input: { tenant_id: string; models: TrueFoundryEnabledModel[] }): ModelProviderRecord[] {
+  const byAccount = new Map<string, TrueFoundryEnabledModel[]>();
+  for (const model of input.models) {
+    const existing = byAccount.get(model.accountName);
+    if (existing === undefined) {
+      byAccount.set(model.accountName, [model]);
+    } else {
+      existing.push(model);
+    }
+  }
+  const now = new Date().toISOString();
+  return [...byAccount.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([accountName, models]) => ({
+      tenant_id: input.tenant_id,
+      name: accountName,
+      manifest: toManifest(models),
+      created_at: now,
+      updated_at: now,
+    }));
+}
+
+function toManifest(models: TrueFoundryEnabledModel[]): ModelProviderManifest {
   return {
     type: 'truefoundry',
-    base_url: input.bundle.gatewayUrl,
-    auth: { api_key: input.accessToken },
-    models: input.bundle.models.map(model => ({
-      model_id: model.model_id,
-      name: model.model_id,
+    models: models.map(model => ({
+      name: model.modelName,
+      model_id: `${model.accountName}/${model.modelName}`,
       properties: model.properties,
     })),
   };

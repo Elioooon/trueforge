@@ -99,7 +99,7 @@ function wellKnownProviderSchema<Type extends Exclude<ModelProviderType, 'custom
   }).strict();
 }
 
-const OpenAiModelProviderSchema = wellKnownProviderSchema({
+const OpenAIModelProviderSchema = wellKnownProviderSchema({
   type: 'openai',
   base_url: 'https://api.openai.com/v1',
 }).openapi('OpenAIModelProvider');
@@ -139,15 +139,11 @@ const AlibabaModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
 }).openapi('AlibabaModelProvider');
 
-/**
- * TrueFoundry AI Gateway: OpenAI-compatible. No global default URL — the control-plane
- * registry fills `base_url` from the tenant's default installation; local settings must set one.
- */
-const TrueFoundryModelProviderSchema = ModelProviderManifestBaseSchema.extend({
-  type: z.literal('truefoundry'),
-  base_url: z.url().describe('TrueFoundry AI Gateway OpenAI-compatible base URL.'),
-})
-  .strict()
+const TrueFoundryModelProviderSchema = z
+  .object({
+    type: z.literal('truefoundry'),
+    models: z.array(ConfiguredModelSchema).min(1).describe('Models exposed by this provider (at least one).'),
+  })
   .openapi('TrueFoundryModelProvider');
 
 /** The one type a caller names, because only it supplies its own endpoint. */
@@ -175,7 +171,7 @@ export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
  */
 const ModelProviderBodySchema = z
   .discriminatedUnion('type', [
-    OpenAiModelProviderSchema,
+    OpenAIModelProviderSchema,
     AnthropicModelProviderSchema,
     GoogleGeminiModelProviderSchema,
     FireworksModelProviderSchema,

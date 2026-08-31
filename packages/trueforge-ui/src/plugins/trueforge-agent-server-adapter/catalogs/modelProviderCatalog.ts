@@ -100,6 +100,8 @@ export function toHarnessModelProvider(req: {
       baseUrl,
       ...(req.apiKey === '' ? {} : { auth: { apiKey: req.apiKey } }),
     };
+  } else if (req.type === 'truefoundry') {
+    return { type: req.type, models };
   }
   const auth = { apiKey: req.apiKey };
   if (baseUrl !== undefined) {

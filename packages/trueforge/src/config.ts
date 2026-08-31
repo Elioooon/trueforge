@@ -241,52 +241,6 @@ export function isLoopbackHostname(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }
 
-function parseAbsoluteHttpUrl(envKey: string, raw: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch (error) {
-    throw new Error(`Environment variable ${envKey} must be a valid URL, got "${raw}"`, { cause: error });
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error(`Environment variable ${envKey} must be an http or https URL, got "${raw}"`);
-  }
-  return normalizeHttpUrl(parsed);
-}
-
-/** TrueFoundry URLs receive the caller's Bearer token; https except loopback. */
-function parseTrueFoundryUrl(envKey: string, raw: string): string {
-  const href = parseAbsoluteHttpUrl(envKey, raw);
-  const parsed = new URL(href);
-  if (parsed.protocol === 'http:' && !isLoopbackHostname(parsed.hostname)) {
-    throw new Error(`Environment variable ${envKey} must use https unless it is localhost, got "${raw}"`);
-  }
-  return href;
-}
-
-function optionalNonEmptyEnv(key: string): string | undefined {
-  const raw = getEnv(key);
-  if (raw === undefined || raw.trim() === '') {
-    return undefined;
-  }
-  return raw.trim();
-}
-
-function resolveTrueFoundryRegistry(): TrueFoundryModelRegistryConfig | undefined {
-  const controlPlaneRaw = optionalNonEmptyEnv('TRUEFOUNDRY_CONTROL_PLANE_URL');
-  if (controlPlaneRaw === undefined) {
-    return undefined;
-  }
-  return {
-    controlPlaneUrl: parseTrueFoundryUrl('TRUEFOUNDRY_CONTROL_PLANE_URL', controlPlaneRaw),
-    cacheTtlSeconds: parsePositiveInt({
-      envKey: 'TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS',
-      raw: getEnv('TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS'),
-      defaultValue: 300,
-    }),
-  };
-}
-
 function resolveOIDCConfig(): OIDCConfig | undefined {
   const issuerUrl = getEnv('OIDC_ISSUER_URL');
   const clientId = getEnv('OIDC_CLIENT_ID');
@@ -319,16 +273,6 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
 // ============================================================================
 // CONFIGURATION TYPES
 // ============================================================================
-
-export interface TrueFoundryModelRegistryConfig {
-  /** TrueFoundry control plane origin. Env: `TRUEFOUNDRY_CONTROL_PLANE_URL`. */
-  controlPlaneUrl: string;
-  /**
-   * TTL for tenant model/gateway cache and the global providers catalog.
-   * Env: `TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS`. Default 300 (5 minutes).
-   */
-  cacheTtlSeconds: number;
-}
 
 export interface OIDCConfig {
   /** e.g. an Okta custom authorization server, or an Azure AD tenant's v2.0 endpoint. Env: `OIDC_ISSUER_URL`. */
@@ -476,7 +420,12 @@ export interface SharedServerConfiguration {
    * via the AI Gateway with the caller's token. Unset = local model-provider store.
    * Env: `TRUEFOUNDRY_CONTROL_PLANE_URL`. Optional cache TTL: `TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS`.
    */
-  TRUEFOUNDRY_REGISTRY: TrueFoundryModelRegistryConfig | undefined;
+  TRUEFOUNDRY_CONTROL_PLANE_URL: string | undefined;
+  /**
+   * TTL for tenant model/gateway cache and the global providers catalog.
+   * Env: `TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS`. Default 300 (5 minutes).
+   */
+  TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS: number;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -634,7 +583,12 @@ const shared: SharedServerConfiguration = {
     defaultValue: 500,
   }),
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
-  TRUEFOUNDRY_REGISTRY: resolveTrueFoundryRegistry(),
+  TRUEFOUNDRY_CONTROL_PLANE_URL: getEnv('TRUEFOUNDRY_CONTROL_PLANE_URL', { required: false }),
+  TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS: parsePositiveInt({
+    envKey: 'TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS',
+    raw: getEnv('TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS'),
+    defaultValue: 300,
+  }),
 };
 
 const configuration: ServerConfiguration = standalone

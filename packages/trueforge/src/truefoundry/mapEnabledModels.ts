@@ -1,7 +1,7 @@
 import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { isLoopbackHostname, normalizeHttpUrl } from '../config';
-import type { AvailableModel, ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
+import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const SUPPORTED_EFFORTS = new Set<string>(SUPPORTED_REASONING_EFFORTS);
 
@@ -90,14 +90,17 @@ function isChatModelTypes(value: unknown): boolean {
   return Array.isArray(value) && value.some(entry => entry === 'chat');
 }
 
-/** Listing FQN prefix and well-known adapter type: `truefoundry/{account}/{name}`. */
-export const TRUEFOUNDRY_MODEL_PROVIDER_NAME = 'truefoundry';
+export interface TrueFoundryEnabledModel {
+  accountName: string;
+  modelName: string;
+  properties: ModelProperties;
+}
 
 export function mapEnabledModels(input: {
   integrations: readonly unknown[];
   catalog: Map<string, ModelProperties>;
-}): AvailableModel[] {
-  const models: AvailableModel[] = [];
+}): TrueFoundryEnabledModel[] {
+  const models: TrueFoundryEnabledModel[] = [];
   const seen = new Set<string>();
   for (const row of input.integrations) {
     if (!isRecord(row)) {
@@ -124,12 +127,7 @@ export function mapEnabledModels(input: {
       catalogProvider === undefined || modelId === undefined
         ? {}
         : (input.catalog.get(catalogKey(catalogProvider, modelId)) ?? {});
-    models.push({
-      name: `${TRUEFOUNDRY_MODEL_PROVIDER_NAME}/${gatewayId}`,
-      model_id: gatewayId,
-      provider: { name: TRUEFOUNDRY_MODEL_PROVIDER_NAME },
-      properties,
-    });
+    models.push({ accountName, modelName, properties });
   }
   return models;
 }

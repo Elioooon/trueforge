@@ -220,11 +220,11 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   } = persistence;
 
   let modelProviderStore: IModelProviderStore<TTransaction> = persistenceModelProviderStore;
-  if (configuration.TRUEFOUNDRY_REGISTRY !== undefined) {
+  if (configuration.TRUEFOUNDRY_CONTROL_PLANE_URL !== undefined) {
     const { TrueFoundryModelProviderStore } = await import('./truefoundry/TrueFoundryModelProviderStore');
     const trueFoundryModelProviderStore = new TrueFoundryModelProviderStore<TTransaction>({
-      controlPlaneUrl: configuration.TRUEFOUNDRY_REGISTRY.controlPlaneUrl,
-      cacheTtlMs: configuration.TRUEFOUNDRY_REGISTRY.cacheTtlSeconds * 1000,
+      controlPlaneUrl: configuration.TRUEFOUNDRY_CONTROL_PLANE_URL,
+      cacheTtlMs: configuration.TRUEFOUNDRY_CONTROL_PLANE_CACHE_TTL_SECONDS * 1000,
       logger,
     });
     modelProviderStore = trueFoundryModelProviderStore;
