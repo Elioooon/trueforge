@@ -1,5 +1,12 @@
 # @truefoundry/trueforge-core
 
+## 0.2.0-rc.1
+
+### Patch Changes
+
+- d89b2ff: Persist zero-initialized metrics on agent sessions.
+- c40129c: Cap Daytona status-refresh calls at 1 minute so a stalled provider cannot hang request handlers.
+
 ## 0.2.0-rc.0
 
 ### Minor Changes
