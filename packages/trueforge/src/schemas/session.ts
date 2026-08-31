@@ -99,7 +99,7 @@ export const GetSessionMetricsRequestQuerySchema = z
 export const GetSessionMetricsChartsDataRequestQuerySchema = z
   .object({
     ...GetSessionMetricsRequestQuerySchema.shape,
-    chart_name: SessionMetricsChartNameSchema.describe('Chart to return.'),
+    chart_name: SessionMetricsChartNameSchema,
   })
   .openapi('GetSessionMetricsChartsDataRequestQuery');
 
