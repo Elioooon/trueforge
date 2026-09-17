@@ -467,7 +467,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         if (e instanceof DaytonaError && e.statusCode === SANDBOX_NOT_FOUND_STATUS) {
           throw new SandboxFileNotFoundError(params.path);
         }
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
         throw e;
       }
     });
@@ -481,7 +481,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           await sandbox.fs.uploadFile(params.content, params.remotePath);
         });
       } catch (e: unknown) {
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
         throw e;
       }
     });
@@ -497,7 +497,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           return signed.url;
         });
       } catch (e: unknown) {
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
         this.logger.error('Failed to create signed preview URL', extractErrorLogFields(e));
         throw e;
       }
