@@ -165,4 +165,33 @@ describe('DaytonaSandboxProvider exec', () => {
     expect(oldClient.get).toHaveBeenCalledWith(sandboxId);
     expect(newClient.get).toHaveBeenCalledWith(sandboxId);
   });
+
+  it('evicts the credential-scoped cache entry after a file operation fails', async () => {
+    const sandboxId = 'test-tenant.file-cache-eviction';
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    const staleSandbox = {
+      state: 'started',
+      fs: {
+        getFileDetails: jest.fn().mockResolvedValue({ size: 1, isDir: false }),
+        downloadFile: jest.fn().mockRejectedValue(new Error('connection reset')),
+      },
+    };
+    const restoredSandbox = {
+      state: 'started',
+      fs: {
+        getFileDetails: jest.fn().mockResolvedValue({ size: 1, isDir: false }),
+        downloadFile: jest.fn().mockResolvedValue(Buffer.from('recovered')),
+      },
+    };
+    jest
+      .spyOn(client, 'get')
+      .mockResolvedValueOnce(staleSandbox as never)
+      .mockResolvedValueOnce(restoredSandbox as never);
+    const provider = makeRuntimeProvider(client);
+
+    await expect(provider.downloadFile({ sandboxId, path: '/tmp/output' })).rejects.toThrow('connection reset');
+    await expect(provider.downloadFile({ sandboxId, path: '/tmp/output' })).resolves.toEqual(Buffer.from('recovered'));
+
+    expect(client.get).toHaveBeenCalledTimes(2);
+  });
 });
