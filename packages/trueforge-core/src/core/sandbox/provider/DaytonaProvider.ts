@@ -468,6 +468,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           throw new SandboxFileNotFoundError(params.path);
         }
         DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
+        await this.reportError(e);
         throw e;
       }
     });
@@ -482,6 +483,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
+        await this.reportError(e);
         throw e;
       }
     });
@@ -498,6 +500,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
+        await this.reportError(e);
         this.logger.error('Failed to create signed preview URL', extractErrorLogFields(e));
         throw e;
       }
