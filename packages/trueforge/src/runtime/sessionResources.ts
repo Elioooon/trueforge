@@ -277,7 +277,7 @@ export async function resolveSandboxProvider({
           error,
           build_metadata: record.build_metadata,
           expected_manifest: manifest,
-          expected_updated_at: record.updated_at,
+          expected_status: record.status,
         });
       },
     });
